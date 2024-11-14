@@ -1,0 +1,161 @@
+---
+title: 'STOR 455 Homework 6'
+subtitle: '20 points - Due Wednesday 3/27 5:00pm'
+output:
+  pdf_document: default
+---
+
+### Are Emily and Greg More Employable Than Lakisha and Jamal? ###
+
+Audrey Salmon
+
+Bertrand, M., & Mullainathan, S. (2004). Are Emily and Greg more employable than Lakisha and Jamal? A field experiment on labor market discrimination. _American Economic Review, 94_(4), pp. 991-1013.
+ 
+\[Abstract\]
+We perform a field experiment to measure racial discrimination in the labor market. We respond with fictitious resumes to help-wanted ads in Boston and Chicago newspapers. To manipulate perception of race, each resume is randomly assigned either a very African American sounding name or a very White sounding name. The results show significant discrimination against African-American names: White names receive 50 percent more callbacks for interviews. We also find that race affects the benefits of a better resume. For White names, a higher quality resume elicits 30 percent more callbacks whereas for African Americans, it elicits a far smaller increase. Applicants living in better neighborhoods receive more callbacks but, interestingly, this effect does not differ by race. The amount of discrimination is uniform across occupations and industries. Federal contractors and employers who list “Equal Opportunity Employer” in their ad discriminate as much as other employers. We find little evidence that our results are driven by employers inferring something other than race, such as social class, from the names. These results suggest that racial discrimination is still a prominent feature of the labor market.    
+
+
+Variables     | Descriptions
+-----------   | -----------------------------------------------------
+_call_        | Was the applicant called back? (1 = yes; 0 = no)
+_ethnicity_   | indicating ethnicity ("Caucasian-sounding" vs. "African-American sounding" first name)
+_sex_         | indicating sex
+_quality_     | Indicating quality of resume.
+_experience_  | Number of years of work experience on the resume
+_equal_       | Is the employer EOE (equal opportunity employment)?
+
+
+Use the _ResumeNames455_ found at the address below:
+```{r}
+library(tidyverse)
+library(Stat2Data)
+
+EmployData <- read_csv("https://raw.githubusercontent.com/JA-McLean/STOR455/master/data/ResumeNames455.csv", show_col_types = FALSE)
+EmployData
+```
+
+1) Construct a logistic model to predict if the job applicant was called back using _experience_ as the predictor variable.
+
+```{r}
+logisticmod <- glm(call ~ experience, family = binomial, data = EmployData)
+```
+
+2) Plot the raw data and the logistic curve on the same axes.
+
+```{r}
+B0 <- summary(logisticmod)$coef[1]
+B1 <- summary(logisticmod)$coef[2]
+
+logit <- function(B0, B1, x)
+  {
+   exp(B0+B1*x)/(1+exp(B0+B1*x))
+  }
+
+plot(jitter(call, amount=0.1) ~ experience, data = EmployData)
+curve(exp(B0+B1*x)/(1+exp(B0+B1*x)), add=TRUE, col="red")
+```
+
+3) For an applicant with 6 years of experience, what does your model predict is the probability of this applicant getting called back?
+
+```{r}
+pi.hat <- logit(B0, B1, 6)
+pi.hat
+```
+
+According to my model, there is a 7.4% chance that an applicant with 6 years of experience will be called back.
+
+4) Construct an empirical logit plot and comment on the linearity of the data.
+
+```{r}
+emplogitplot1(call ~ experience, data = EmployData, ngroups="all")
+```
+
+I believe that the data does appear to be somewhat linear, although the variance is not constant (the points fan out more as _experience_ increases). Overall, though, there does not appear to be an extremely noticeable non-linear pattern amongst the data, in my opinion.
+
+5) Use the model from question #1 to perform a hypothesis test to determine if there is significant evidence of a relationship between _call_ and _experience_. Cite your hypotheses, p-value, and conclusion in context.
+
+```{r}
+summary(logisticmod)
+```
+
+We can use the p-value associated with the t-test that corresponds with _experience_ from the summary of the model to determine if there is significant evidence of a relationship between _call_ and _experience_. We can first take H0: There is no relationship between _experience_ and _call_ (the coefficient of _experience_ is zero). H1: There is a relationship between _experience_ and _call_ (the coefficient of _experience_ is nonzero). The p-value for the t-test here is 2.07e-05, which is much less than 0.05. Thus, we can reject the null, and conclude that there is significant evidence that there is a relationship between _experience_ and _call_.
+
+6) Construct a confidence interval for the odds ratio for your model and include a sentence interpreting the interval in the context.
+
+```{r}
+exp(confint.default(logisticmod))
+```
+
+So, we are 95% confident that there is a significant positive relationship between a candidate's years of experience and the probability they will be called back.
+
+7) For each 5-year increase in _experience_, how does your model predict the odds will change for the applicant getting called back?
+
+```{r}
+exp(B1*5)
+```
+
+For each 5-year increase in _experience_, my model predicts that the odds of getting called back increase by a factor of 5.1993
+
+8) Construct subsets of the data for each category of _ethnicity_ and construct logistic models to predict if the job applicant was called back using _experience_ as the predictor variable for each of these subsets. Then plot the raw data and the logistic curves on the same axes. Comment on differences between the curves and what this means in the context of the data.
+
+```{r}
+model_african_american <- glm(call ~ experience, data = filter(EmployData, ethnicity == "afam"), family = "binomial")
+model_white <- glm(call ~ experience, data = filter(EmployData, ethnicity == "cauc"), family = "binomial")
+
+summary(model_african_american)
+summary(model_white)
+```
+
+```{r}
+A0 <- summary(model_african_american)$coef[1]
+A1 <- summary(model_african_american)$coef[2]
+
+W0 <- summary(model_white)$coef[1]
+W1 <- summary(model_white)$coef[2]
+logitA <- function(A0, A1, x)
+  {
+    exp(A0+A1*x)/(1+exp(A0+A1*x))
+}
+logitW <- function(W0, W1, x)
+  {
+    exp(W0+W1*x)/(1+exp(W0+W1*x))
+}
+
+plot(jitter(call, amount=0.1) ~ experience, data = EmployData)
+curve(logitA(A0, A1, x), add=TRUE, col="red")
+curve(logitW(W0, W1, x), add=TRUE, col="blue")
+```
+
+So, it appears that African-Americans (represented by the red line) tend to have a lower chance of receiving a call back than white applicants, regardless of experience. While the curves do seem to get slightly closer together as experience gets larger, I do not think I am able to comment on this as a clear trend, since there is only one person in this dataset who had more than 30 years of experience. So, I do not think we can confidently make any claims about trends for people who have many decades of experience.
+
+9) Construct subsets of the data for each category of _sex_ and construct logistic models to predict if the job applicant was called back using _experience_ as the predictor variable for each of these subsets. Then plot the raw data and the logistic curves on the same axes. Comment on differences between the curves and what this means in the context of the data.
+
+```{r}
+model_female <- glm(call ~ experience, data = filter(EmployData, sex == "female"), family = "binomial")
+model_male <- glm(call ~ experience, data = filter(EmployData, sex == "male"), family = "binomial")
+
+summary(model_female)
+summary(model_male)
+```
+
+```{r}
+F0 <- summary(model_female)$coef[1]
+F1 <- summary(model_female)$coef[2]
+
+M0 <- summary(model_male)$coef[1]
+M1 <- summary(model_male)$coef[2]
+logitF <- function(F0, F1, x)
+  {
+    exp(F0+F1*x)/(1+exp(F0+F1*x))
+}
+logitM <- function(M0, M1, x)
+  {
+    exp(M0+M1*x)/(1+exp(M0+M1*x))
+}
+
+plot(jitter(call, amount=0.1) ~ experience, data = EmployData)
+curve(logitF(F0, F1, x), add=TRUE, col="pink")
+curve(logitM(M0, M1, x), add=TRUE, col="blue")
+```
+
+Based on these graphs, it appears that men with low levels of experience (less than 5 years, approximately?) have a higher chance of getting called back than women with the same amount of experience. However, the probability of a woman getting called back grows significantly with her level of experience, while for men it does not appear to chance much. So, having more experience has a greater effect on a woman's chance of getting called back than it does a man's. That being said, the one person who has a much larger amount of experience than any other person in the dataset could have a significant effect on the models.

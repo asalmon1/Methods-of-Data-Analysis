@@ -1,0 +1,256 @@
+---
+title: 'STOR 455 Homework #4'
+subtitle: 40 points - Due Monday 3/4 before class - Audrey Salmon
+output:
+  pdf_document: default
+---
+
+__Situation:__ Suppose that you are interested in purchasing a used vehicle. How much should you expect to pay?  Obviously the price will depend on the type of vehicle that you purchase (the model) and how much it has been used. For this assignment you will again investigate how the price might depend on the vehicle's model, mileage, age, and now the US state of the vehicle as well.  
+ 
+__Directions:__ To collect a sample of vehicles, begin with the _vehiclesSE_ CSV file. The data was acquired by scraping Craigslist for vehicles for sale across the southeastern United States. For this assignment you will choose the same vehicle _model_  selected in homework #2 for which there are between 100 and 200 of that model listed for sale in data. The code below should walk you through the process of selecting data from a particular model vehicle of your choice. The following R chunk begins with {r, eval=FALSE}. eval=FALSE makes these chunks not run when I knit the file. Before you knit these chunks, you should revert them to {r}.
+
+```{r}
+library(tidyverse)
+library(car)
+library(corrplot)
+library(leaps)
+
+vehiclesSE <- read_csv("vehiclesSE.csv", show_col_types = FALSE)
+
+# Delete the ** below and enter your chosen model
+ModelOfMyChoice = "camaro"
+
+# Takes a subset of your model vehicles
+MyVehicles <- filter(vehiclesSE, model == ModelOfMyChoice & price > 0)
+MyVehicles
+```
+
+#### MODEL #4: Use Age and Odometer as predictors for Price ####
+
+1. Again construct a new variable called _age_ in the _MyVehicles_ dataframe. Since the vehicles were posted to Craigslist in 2021, define the _age_ of all vehicles to be their year subtracted from 2021. 
+
+```{r}
+MyVehicles$age <- c(2021 - MyVehicles$year)
+```
+
+2. Construct a model using two predictors (_age_ and _odometer_) with _price_ as the response variable and provide the summary output.
+
+```{r}
+mod1 <- lm(price ~ odometer + age, data = MyVehicles)
+```
+
+3. Assess the importance of each of the predictors in the regression model - be sure to indicate the specific value(s) from the summary output you are using to make the assessments. Include hypotheses and conclusions in context.
+
+```{r}
+summary(mod1)
+```
+
+First, when looking at _odometer_ as a predictor, we can take two hypotheses. H0: There is not a significant relationship between _odometer_ and _price_. H1: There is a significant relationship between _odometer_ and _price_. As the p-value associated with _odometer_ is <2e-16, which is much less than 0.05, we can reject the null hypothesis, and thus there is enough evidence to conclude that there is a significant relationship between _odometer_ and _price_.
+
+Second, when looking at _age_ as a predictor, we can take two hypotheses. H0: There is not a significant relationship between _age and _price_. H1: There is a significant relationship between _age_ and _price_. As the p-value associated with _odometer_ is 0.0704, which is greater than 0.05, we will fail to reject the null hypothesis at the 0.05 significance level, and thus there is not enough evidence to conclude that there is a significant relationship between _age_ and _price_.
+
+In conclusion, _odometer_ is much more important in the model than _age_, as it has a much lower p-value, while _age_ may not be statistically significant in predicting _price_.
+
+4. Assess the overall effectiveness of this model (with a formal test). Again, be sure to include hypotheses and the specific value(s) that you are using from the summary output to reach a conclusion.
+
+```{r}
+summary(mod1)
+```
+
+We can take a hypothesis test for the F-statistic. Let H0 = There is not a significant difference between the amount of variance explained by the model compared to the amount of variance explained by a model with no predictors. Let H1 = A significant amount of the variance is explained by the model. From the summary output, the F-statistic is 85.08, which is relatively high, and its p-value is < 2.2e-16, which is much less than 0.05. Thus, we can reject the null hypothesis, and conclude that the model does explain a significant amount of the variance in the data.
+
+5. Compute and interpret the variance inflation factor (VIF) for your predictors.
+
+```{r}
+vif(mod1)
+```
+
+The VIF values for _odometer_ (1.003979) and _age_ (1.003979) are both much less than 5, and thus there is likely little or no multicollinearity between the two predictors.
+
+6. Suppose that you are interested in purchasing a car of this model that is from the year 2017 with 50K miles. Determine each of the following: a 95% confidence interval for the mean price at this year and odometer reading, and a 95% prediction interval for the price of an individual car at this year and odometer reading. Write sentences that carefully interpret each of the intervals (in terms of car prices)
+
+```{r}
+one_car <- data.frame(age = 4, odometer = 50000)
+predict.lm(mod1, one_car, interval = 'confidence', level = 0.95)
+```
+
+We are 95% confident that the true mean price for all Camaros from the year 2017 and with 50,000 miles lies between \$24,444.34 and \$28,575.38.
+
+```{r}
+predict.lm(mod1, one_car, interval = 'prediction', level = 0.95)
+```
+
+We predict that about 95% of Camaros from the year 2017 and with 50,000 miles will be priced between \$5,001.09 and \$48,018.63
+
+#### MODEL #5: Now include a categorical predictor ####    
+
+7. Fit a multiple regression model using _age_, _odometer_, and _state_ to predict the _price_ of the vehicle. 
+
+```{r}
+MyVehicles$al <- (MyVehicles$state == 'al')*1
+MyVehicles$fl <- (MyVehicles$state == 'fl')*1
+MyVehicles$ga <- (MyVehicles$state == 'ga')*1
+MyVehicles$ms <- (MyVehicles$state == 'ms')*1
+MyVehicles$nc <- (MyVehicles$state == 'nc')*1
+MyVehicles$sc <- (MyVehicles$state == 'sc')*1
+MyVehicles$tn <- (MyVehicles$state == 'tn')*1
+
+mod2 <- lm(price ~ odometer + age + al + fl + ga + ms + nc + sc, data = MyVehicles)
+```
+
+8. Perform a hypothesis test to determine the importance of terms involving _state_ in the model constructed in question 7. List your hypotheses, p-value, and conclusion.
+
+```{r}
+summary(mod2)
+```
+
+When looking at each state as a predictor (notice that I omitted _tn_ as this will work as our reference group) we want to determine if the differences between the data for cars sold in each state are statistically significant.
+
+For each predictor involving _state_, we can perform the same hypothesis test using the individual t-tests in the summary output. For each predictor, H0 = This predictor has a coefficient of zero (it is not statistically significant in the model). H1 = This predictor has a nonzero coefficient (it is statistically significant in the model). For this model, the t-tests for every term involving _state_ result in a p-value greater than 0.05. Therefore, for every predictor involving _state_, we fail to reject the null hypothesis. There is not enough evidence to conclude that any of the predictors involving _state_ are statistically significant within the model (have a nonzero coefficient).
+
+9. Fit a multiple regression model using _age_, _odometer_, _state_, and the interactions between _age_ and _state_, and _odometer_ and _state_ to predict the _price_ of  the vehicle.
+
+```{r}
+mod3 <- lm(price ~ odometer*al + odometer*fl + odometer*ga + odometer*ms + odometer*nc + odometer*sc + age*al + age*fl + age*ga + age*ms + age*nc + age*sc, data = MyVehicles)
+```
+
+10. Perform a hypothesis test to determine the importance of the terms involving _state_ in the model constructed in question 9. List your hypotheses, p-value, and conclusion.
+
+```{r}
+summary(mod3)
+```
+
+For each predictor involving _state_, we can perform the same hypothesis test using the individual t-tests in the summary output. For each predictor, H0 = This predictor has a coefficient of zero (it is not statistically significant in the model). H1 = This predictor has a nonzero coefficient (it is statistically significant in the model). For this model, the t-tests for every term involving _state_ result in a p-value greater than 0.05. Therefore, for every predictor involving _state_, we fail to reject the null hypothesis. There is not enough evidence to conclude that any of the predictors involving _state_ are statistically significant within the model (have a nonzero coefficient). However, I would like to note that, at the 0.1 level, the term al:age (which is the interaction between a Camaro being sold in Alabama and its age) is significant, with a p-value of 0.0786. So, there is some evidence that this term in particular may have a nonzero coefficient.
+
+
+#### MODEL #6: Polynomial models ####   
+    
+One of the drawbacks of the linear model in assignment #2 was the “free vehicle” phenomenon where the predicted price is eventually negative as the line decreases for older vehicles. Let’s see if adding one or more polynomial terms might help with this. 
+
+11. Fit a quadratic model using _age_ to predict _price_ and examine the residuals. Construct a scatterplot of the data with the quadratic fit included. You should discuss each of the conditions for the linear model.
+
+```{r}
+mod4 <- lm(price ~ poly(age, 2, raw = TRUE), data = MyVehicles)
+plot(mod4)
+```
+
+Looking at the various residual plots, this model is only a somewhat good fit for the data, in my opinion.
+
+The normal quantile plot shows that the residuals do not follow a very normal distribution. The data points do not fall in a straight line, indicating that the graph of residuals would not be normal. Additionally, there are more extreme values on the higher end, meaning that the distribution of residuals is skewed right. 
+
+The residuals vs. fitted plot shows a curved line, indicating that this model may not be an excellent fit for the data. 
+
+The scale-location plot shows a slight curve as well. Additionally, it seems in the residuals vs. fitted plot that there is more variability on the higher end. This indicates that there is likely not a constant variance among the residuals. 
+
+The residuals vs. leverage plot shows that there are not any observations that lie beyond Cook's distance, so there are not any extremely influential points.
+
+
+```{r}
+B0 <- summary(mod4)$coef[1,1]
+B1 <- summary(mod4)$coef[2,1]
+B2 <- summary(mod4)$coef[3,1]
+
+plot(price ~ age, data = MyVehicles)
+curve(B0 + B1*x + I(B2*x^2), add = TRUE)
+```
+
+12. Perform a hypothesis test to determine if any of the coefficients in this model have nonzero coefficients. List your hypotheses, p-value, and conclusion.
+
+```{r}
+summary(mod4)
+```
+
+I can determine if any of the predictors in this model have nonzero coefficients using the F-statistic from the summary output. This tests if my model explains significantly more of the variance in the data than a model with no predictors, which is the same as testing whether any of the predictors have nonzero coefficients. Let H0 = All of the predictors in this model have zero coefficients, and let H1 = At least one of the predictors in this model has a nonzero coefficients. The F-statistic for this model is 31.66 with a p-value of 1.264e-12. This p-value is much less than 0.05, and thus we can reject the null hypothesis and conclude that at least one of the predictors in this model has a nonzero coefficient.
+
+13. You are looking at a vehicle that was 4 years old (in 2021) of your model and want to find an interval that is likely to contain its _price_ using your quadratic model. Construct an interval with 95% confidence to predict the _price_ of this vehicle and include an interpretive sentence in context. 
+
+```{r}
+predict.lm(mod4, one_car, interval = 'prediction', level = 0.95)
+```
+
+We predict that about 95% of Camaros from the year 2017 will be priced between \$2,125.52 and \$53,356.16. Essentially, there is a 95% chance that this interval contains the price of this Camaro.
+
+14. Does the quadratic model allow for some _age_ where a vehicle has a zero or negative predicted price? Justify your answer using a calculation or graph.
+
+No, this model does not allow for an _age_ where a vehicle is free or has a negative price. Because the model is a quadratic with a degree of two, and the coefficient in front of the x^2 term is positive, we know it must be an upwards-facing parabola.
+
+```{r}
+plot(price ~ age, data = MyVehicles)
+curve(B0 + B1*x + I(B2*x^2), add = TRUE)
+abline(0,0, col = 'red')
+```
+
+I plotted a line at price = 0, and as you can see, the minimum of this model is well above 0. Therefore, we can conclude that this model will never result in a price of 0 or less than 0.
+
+15. Would the fit improve significantly if you also included a cubic term? Does expanding your polynomial model to use a quartic term make significant improvements? Justify your answer.
+
+```{r}
+cubicmod <- lm(price ~ poly(age, 3, raw = TRUE), data = MyVehicles)
+quarticmod <- lm(price ~ poly(age, 4, raw = TRUE), data = MyVehicles)
+
+anova(mod4, cubicmod)
+```
+
+First, I tried testing the significance of a cubic model compared to the original second-degree model. I used an ANOVA test. I took H0 = the second degree (reduced) model, and HA = the third degree (larger) model. This resulted in a 0.1086 p-value in the F-test, which is greater than 0.05. Thus, I failed to reject the null and can conclude that there is not a significant difference between these two models. It would be best to keep the second degree model and not add a cubic term.
+
+```{r}
+anova(mod4, quarticmod)
+```
+
+Second, I tried testing the significance of a quartic model compared to the original second-degree model. I used an ANOVA test. I took H0 = the second degree (reduced) model, and HA = the fourth degree (larger) model. This resulted in a 0.0006912 p-value in our F-test, which is much less than 0.05. Thus, I am able to reject the null and can conclude that there is a significant difference between these two models. So, it would be best to add a quartic term to the original model, as the test determined that this would result in a significantly better model.
+
+#### MODEL #7: Complete second order model ####    
+
+16.	Fit a complete second order model for predicting a used vehicle _price_ based on _age_ and _odometer_ and examine the residuals. You should discuss each of the conditions for the linear model.
+
+```{r}
+mod5 <- lm(price ~ age*odometer + I(age^2) + I(odometer^2), data = MyVehicles)
+plot(mod5)
+```
+
+Looking at these plots, I believe this model is better than previous ones.
+
+Firstly, the normal quantile plot shows a fairly straight line, with some extreme values (curvature) on both ends. This indicates that the residuals are distributed somewhat normally, with long tails (but the distribution does not appear to be skewed).
+
+The residuals vs. fitted plot has a fairly straight line, so it seems that this model does fit the data fairly well.
+
+However, the residuals vs. fitted plot also shows that the points appear to fan out (higher variability) for larger values. Additionally, the scale-location plot is not even close to a horizontal line. So, it seems that the variance is not very constant with this model.
+
+Finally, there are no data points that lie beyond Cook's distance.
+
+17. Perform a hypothesis test to determine if any of the coefficients in this model have nonzero coefficients. List your hypotheses, p-value, and conclusion.
+
+```{r}
+summary(mod5)
+```
+
+I can determine if any of the predictors in this model have nonzero coefficients using the F-statistic from the summary output. This tests if my model explains significantly more of the variance in the data than a model with no predictors, which is the same as testing whether any of the predictors have nonzero coefficients. Let H0 = All of the predictors in this model have zero coefficients, and let H1 = At least one of the predictors in this model has a nonzero coefficients. The F-statistic for this model is 57.4 with a p-value of < 2.2e-16. This p-value is much less than 0.05, and thus we can reject the null hypothesis and conclude that at least one of the predictors in this model has a nonzero coefficient.
+
+18. Perform a hypothesis test to determine the importance of just the second order terms (quadratic and interaction) in the model constructed in question 16. List your hypotheses, p-value, and conclusion.
+
+```{r}
+summary(mod5)
+```
+
+For the second-order predictors, we can perform the same hypothesis test using the individual t-tests in the summary output. 
+
+For age^2: H0 = This predictor has a coefficient of zero (it is not statistically significant in the model). H1 = This predictor has a nonzero coefficient (it is statistically significant in the model). The t-test for this predictor resulted in a p-value of 2.92e-06, which is much less than 0.05. Therefore, we can reject the null and conclude that the age squared term has a nonzero coefficient, and is significant in the model.
+
+For odometer^2: H0 = This predictor has a coefficient of zero (it is not statistically significant in the model). H1 = This predictor has a nonzero coefficient (it is statistically significant in the model). The t-test for this predictor resulted in a p-value of 2.85e-09, which is much less than 0.05. Therefore, we can reject the null and conclude that the odometer squared term has a nonzero coefficient, and is significant in the model.
+
+For age:odometer: H0 = This predictor has a coefficient of zero (it is not statistically significant in the model). H1 = This predictor has a nonzero coefficient (it is statistically significant in the model). The t-test for this predictor resulted in a p-value of 0.00393, which is  less than 0.05. Therefore, we can reject the null and conclude that the interaction term has a nonzero coefficient, and is significant in the model.
+
+19. Perform a hypothesis test to determine the importance of just the terms that involve _odometer_ in the model constructed in question 16. List your hypotheses, p-value, and conclusion.
+
+```{r}
+summary(mod5)
+```
+
+For the predictors involving _odometer_, we can perform the same hypothesis test using the individual t-tests in the summary output. 
+
+For odometer: H0 = This predictor has a coefficient of zero (it is not statistically significant in the model). H1 = This predictor has a nonzero coefficient (it is statistically significant in the model). The t-test for this predictor resulted in a p-value of < 2.2e-16, which is much less than 0.05. Therefore, we can reject the null and conclude that the odometer term has a nonzero coefficient, and is significant in the model.
+
+For odometer^2: H0 = This predictor has a coefficient of zero (it is not statistically significant in the model). H1 = This predictor has a nonzero coefficient (it is statistically significant in the model). The t-test for this predictor resulted in a p-value of 2.85e-09, which is much less than 0.05. Therefore, we can reject the null and conclude that the odometer squared term has a nonzero coefficient, and is significant in the model.
+
+For age:odometer: H0 = This predictor has a coefficient of zero (it is not statistically significant in the model). H1 = This predictor has a nonzero coefficient (it is statistically significant in the model). The t-test for this predictor resulted in a p-value of 0.00393, which is  less than 0.05. Therefore, we can reject the null and conclude that the interaction term has a nonzero coefficient, and is significant in the model.
+
